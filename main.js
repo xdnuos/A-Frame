@@ -1,0 +1,228 @@
+
+  
+AFRAME.registerComponent('basic-material', {
+  init: function (){
+    var material = new THREE.MeshBasicMaterial({color: this.el.getAttribute('color')});
+    var geometry = this.el.getObject3D('mesh').geometry;
+    this.el.setObject3D('mesh', new THREE.Mesh(geometry, material));
+  },
+  remove: function(){
+    this.el.removeObject3D('mesh');
+  }
+});
+
+AFRAME.registerComponent('look-at-camera', {
+  tick: function(time, timeDelta){
+    let camera = document.querySelector('a-camera');
+    let position = camera.getAttribute('position');
+    this.el.object3D.lookAt(position);
+  }
+});
+
+AFRAME.registerComponent('follow-camera', {
+  schema: {
+    offset: {
+      type: 'vec3',
+      default: '0 0 0'
+    }
+  },
+  tick: function(time, timeDelta){
+    let camera = document.querySelector('a-camera');
+    let position = camera.getAttribute('position');
+    this.el.setAttribute('position', (position.x + this.data.offset.x) + ' ' + (position.y + this.data.offset.y) + ' ' + (position.z + this.data.offset.z));
+  }
+});
+
+AFRAME.registerComponent('animation-move', {
+  schema: {
+    path: {
+      default: [],
+      parse: function (value) {
+        return JSON.parse(value);
+      }
+    },
+    animationStepTime: {
+      type: 'int',
+      default: 0
+    }
+  },
+  init: function(){
+    this.next = 0;
+    let object = this.el;
+    for (let prop in this.data.path[this.next]) {
+      object.setAttribute( prop, this.data.path[this.next][prop] );
+    }
+  },
+  tick: function (time, timeDelta) {
+    let updated = false
+
+    if ( this.next >= this.data.path.length ) {
+      this.next = 0;
+    }
+
+    let delta = this.data.animationStepTime / (16.7 * ((this.data.animationStepTime+timeDelta)/this.data.animationStepTime));
+    let object = this.el;
+
+    for (let prop in this.data.path[this.next]) {
+
+      let attr = object.getAttribute(prop);
+      let nextStep = this.data.path[this.next][prop];
+
+      let xDelta = Math.abs( (this.next-1 >= 0) ? nextStep.x - this.data.path[this.next-1][prop].x : nextStep.x - this.data.path[this.data.path.length-1][prop].x)/delta;
+      let yDelta = Math.abs( (this.next-1 >= 0) ? nextStep.y - this.data.path[this.next-1][prop].y : nextStep.y - this.data.path[this.data.path.length-1][prop].y)/delta;
+      let zDelta = Math.abs( (this.next-1 >= 0) ? nextStep.z - this.data.path[this.next-1][prop].z : nextStep.z - this.data.path[this.data.path.length-1][prop].z)/delta;
+
+      if (attr.x != nextStep.x) {
+        if ((this.next-1 >= 0 && nextStep.x < this.data.path[this.next-1][prop].x) || (this.next == 0 && nextStep.x < this.data.path[this.data.path.length-1][prop].x)) {
+          if (attr.x-xDelta < nextStep.x) {
+            attr.x = nextStep.x;
+          }
+          else {
+            attr.x -= xDelta;
+            updated = true;
+          }
+        }
+        else if (this.next-1 >= 0 && nextStep.x > this.data.path[this.next-1][prop].x || (this.next == 0 && nextStep.x > this.data.path[this.data.path.length-1][prop].x)) {
+          if (attr.x+xDelta > nextStep.x) {
+            attr.x = nextStep.x;
+          }
+          else {
+            attr.x += xDelta;
+            updated = true;
+          }
+        }
+        else {
+          attr.x = nextStep.x;
+        }
+      }
+
+      if (attr.y != nextStep.y) {
+        if (this.next-1 >= 0 && nextStep.y < this.data.path[this.next-1][prop].y || (this.next == 0 && nextStep.y < this.data.path[this.data.path.length-1][prop].y)) {
+          if (attr.y-yDelta < nextStep.y) {
+            attr.y = nextStep.y;
+          }
+          else {
+            attr.y -= yDelta;
+            updated = true;
+          }
+        }
+        else if (this.next-1 >= 0 && nextStep.y > this.data.path[this.next-1][prop].y || (this.next == 0 && nextStep.y > this.data.path[this.data.path.length-1][prop].y)) {
+          if (attr.y+yDelta > nextStep.y) {
+            attr.y = nextStep.y;
+          }
+          else {
+            attr.y += yDelta;
+            updated = true;
+          }
+        }
+        else {
+          attr.y = nextStep.y;
+        }
+      }
+
+      if (attr.z != nextStep.z) {
+        if (this.next-1 >= 0 && nextStep.z < this.data.path[this.next-1][prop].z || (this.next == 0 && nextStep.z < this.data.path[this.data.path.length-1][prop].z)) {
+          if (attr.z-zDelta < nextStep.z) {
+            attr.z = nextStep.z;
+          }
+          else {
+            attr.z -= zDelta;
+            updated = true;
+          }
+        }
+        else if (this.next-1 >= 0 && nextStep.z > this.data.path[this.next-1][prop].z || (this.next == 0 && nextStep.z > this.data.path[this.data.path.length-1][prop].z)) {
+          if (attr.z+zDelta > nextStep.z) {
+            attr.z = nextStep.z;
+          }
+          else {
+            attr.z += zDelta;
+            updated = true;
+          }
+        }
+        else {
+          attr.z = nextStep.z;
+        }
+      }
+
+      object.setAttribute( prop, attr.x+' '+attr.y+' '+attr.z );
+    }
+    if (!updated) {
+      this.next++;
+    }
+  }
+});
+
+AFRAME.registerComponent('highlight', {
+  init: function () {
+    this.el.addEventListener('mouseenter', (evt) => {
+      this.el.querySelector('a-plane').setAttribute('color', '#F44336');
+    });
+    this.el.addEventListener('mouseleave', (evt) => {
+      this.el.querySelector('a-plane').setAttribute('color', '#000');
+    });
+  }
+});
+
+AFRAME.registerComponent('move-camera', {
+  schema: {
+    position: {
+      default: '0 0 0',
+      type: 'vec3',
+    }
+  },
+  init: function () {
+    this.focused = false;
+    this.maxPosition = {
+      x: {
+        max: 0,
+        min: 0
+      },
+      y: {
+        max: 20,
+        min: 2,
+      },
+      z: {
+        max: 15,
+        min: 0
+      }
+    };
+    this.el.addEventListener('mouseenter', (evt) => {
+      this.cameraPositionY = document.querySelector('a-camera').getAttribute('position').y;
+      this.focused = true;
+    });
+    this.el.addEventListener('mouseleave', (evt) => {
+      this.focused = false;
+    });
+  },
+  tick: function(time, timeDelta) {
+    let camera = document.querySelector('a-camera');
+    let position = camera.getAttribute('position');
+
+    if ( this.focused ) {
+
+      for (const axis in this.data.position) {
+        if (this.data.position[axis] == 0) {
+          continue;
+        }
+        if (position[axis] + this.data.position[axis] > this.maxPosition[axis].max) {
+          position[axis] = this.maxPosition[axis].max;
+          
+        }
+        else if (position[axis] + this.data.position[axis] < this.maxPosition[axis].min) {
+          position[axis] = this.maxPosition[axis].min;
+        }
+        else {
+          position[axis] += this.data.position[axis];
+        }
+      }
+      // fix for signs position
+      let signs = document.querySelectorAll('.sign');
+      for(let i = 0, length1 = signs.length; i < length1; i++){
+        let p = AFRAME.utils.coordinates.parse(signs[i].attributes['follow-camera'].value.replace('offset:', '').replace(';', ''));
+        signs[i].setAttribute('position', (position.x + p.x) + ' ' + (position.y + p.y) + ' ' + (position.z + p.z));
+      }
+
+      camera.setAttribute('position', position);
+    }
+  }
+});
